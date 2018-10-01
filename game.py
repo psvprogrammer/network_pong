@@ -79,7 +79,11 @@ class GameClient:
         self.client.close()
 
     def render(self):
-        self.data = json.loads(self.data)
+        try:
+            self.data = json.loads(self.data)
+        except json.JSONDecodeError as why:
+            print("Error parsing data: {}".format(why))
+            return
 
         # rendering ball
         data = json.loads(self.data['ball'])
@@ -95,6 +99,8 @@ class GameClient:
         # rendering left
 
         # rendering right
+
+        pygame.display.flip()
 
 
 def main():
@@ -121,7 +127,7 @@ def main():
         # ...
 
         screen.fill(BLACK_COLOR)
-        pygame.display.flip()
+        # pygame.display.flip()
     pygame.quit()
 
 

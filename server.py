@@ -1,6 +1,7 @@
 import socket
 import pygame
 import json
+import time
 
 from threading import Thread
 
@@ -243,11 +244,17 @@ class Server:
     def _send_updates(self):
         self.clock = pygame.time.Clock()
         while self.is_running:
-            self.clock.tick(80)
+            self.clock.tick(60)
             data = self.update()
             for player in self.players.values():
-                if player:
-                    player['conn'].send(json.dumps(data).encode())
+                if player and player.get('conn'):
+                    try:
+                        player['conn'].send(json.dumps(data).encode())
+                    except OSError as why:
+                        print("Player disconnected!")
+                        player['conn'] = None
+                        continue
+            # time.sleep(0.0001)
 
 
 if __name__ == '__main__':
