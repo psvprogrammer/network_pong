@@ -13,6 +13,7 @@ PADDING = 5
 BALL_SPEED = 2
 PADDLE_SPEED = 4
 
+RED_COLOR = (255, 50, 50)
 BLACK_COLOR = (0, 0, 0)
 WHITE_COLOR = (255, 255, 255)
 BALL_COLOR = (100, 100, 255)
@@ -78,6 +79,24 @@ class GameClient:
         print("No connection to server!")
         self.client.close()
 
+    def _render_ball(self):
+        data = json.loads(self.data['ball'])
+        pygame.draw.circle(self.screen, data['color'],
+                           data['center'], data['radius'], 0)
+
+    def _render_puddles(self):
+        for position in ('top', 'bottom', 'left', 'right'):
+            if self.data.get(position):
+                data = json.loads(self.data[position])
+                rect = data['rect']
+                if position == self.position:
+                    rect_color = RED_COLOR
+                else:
+                    rect_color = data['color']
+                rect = pygame.Rect(rect['left'], rect['top'],
+                                   rect['width'], rect['height'])
+                pygame.draw.rect(self.screen, rect_color, rect, 0)
+
     def render(self):
         try:
             self.data = json.loads(self.data)
@@ -86,19 +105,16 @@ class GameClient:
             return
 
         # rendering ball
-        data = json.loads(self.data['ball'])
-        pygame.draw.circle(self.screen, data['color'],
-                           data['center'], data['radius'], 0)
-        pygame.draw.circle(self.screen, BLACK_COLOR,
-                           data['center'], data['radius'], 1)
+        try:
+            self._render_ball()
+        except Exception as why:
+            print("Error rendering ball: {}".format(why))
 
-        # rendering top
-
-        # rendering bottom
-
-        # rendering left
-
-        # rendering right
+        # rendering puddles
+        try:
+            self._render_puddles()
+        except Exception as why:
+            print("Error rendering ball: {}".format(why))
 
         pygame.display.flip()
 
@@ -111,7 +127,7 @@ def main():
     running = True
     while running:
         # setting fps
-        clock.tick(60)
+        clock.tick(30)
 
         # event handling
         for event in pygame.event.get():

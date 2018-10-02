@@ -99,7 +99,7 @@ class TopPaddle(RectRenderObject):
     def __init__(self, screensize=RESOLUTION):
         self.screen_size = screensize
 
-        self.width = 100
+        self.width = 200
         self.height = 10
 
         self.x = int(self.screen_size[0] * 0.5)
@@ -120,7 +120,7 @@ class BottomPaddle(RectRenderObject):
     def __init__(self, screensize=RESOLUTION):
         self.screen_size = screensize
 
-        self.width = 100
+        self.width = 200
         self.height = 10
 
         self.x = int(self.screen_size[0] * 0.5)
@@ -135,6 +135,50 @@ class BottomPaddle(RectRenderObject):
 
     def move(self, direction):
         self.x += direction * self.speed
+        self.rect.center = (self.x, self.y)
+
+
+class LeftPaddle(RectRenderObject):
+    def __init__(self, screensize=RESOLUTION):
+        self.screen_size = screensize
+
+        self.width = 10
+        self.height = 200
+
+        self.x = int(self.width * 0.5)
+        self.y = int(self.screen_size[1] * 0.5)
+
+        self.left = 0
+        self.top = self.y-int(self.height * 0.5)
+        self.rect = pygame.Rect(self.left, self.top, self.width, self.height)
+
+        self.color = WHITE_COLOR
+        self.speed = PADDLE_SPEED
+
+    def move(self, direction):
+        self.y += direction * self.speed
+        self.rect.center = (self.x, self.y)
+
+
+class RightPaddle(RectRenderObject):
+    def __init__(self, screensize=RESOLUTION):
+        self.screen_size = screensize
+
+        self.width = 10
+        self.height = 200
+
+        self.x = self.screen_size[0] - int(self.width * 0.5)
+        self.y = int(self.screen_size[1] * 0.5)
+
+        self.left = self.screen_size[0] - self.width
+        self.top = self.y-int(self.height * 0.5)
+        self.rect = pygame.Rect(self.left, self.top, self.width, self.height)
+
+        self.color = WHITE_COLOR
+        self.speed = PADDLE_SPEED
+
+    def move(self, direction):
+        self.y += direction * self.speed
         self.rect.center = (self.x, self.y)
 
 
@@ -155,16 +199,20 @@ class Server:
         self.ball = Ball()
         self.top = TopPaddle()
         self.bottom = BottomPaddle()
-        # self.left = LeftPaddle()
-        # self.right = RightPaddle()
+        self.left = LeftPaddle()
+        self.right = RightPaddle()
 
-        # init positions
+        # game objects init positions
         self.objects = {
             'ball': self.ball,
+        }
+
+        # paddles init positions
+        self.paddles = {
             'top': self.top,
             'bottom': self.bottom,
-            # 'left': self.left,
-            # 'right': self.right
+            'left': self.left,
+            'right': self.right
         }
 
         # players
@@ -194,6 +242,7 @@ class Server:
         player_name = conn.recv(BUFFER_SIZE).decode()
         position = self.positions.pop()
         conn.send(position.encode())
+        print("Player position: {}".format(position))
         player_listener_th = Thread(target=self._listener, args=(position,))
         self.players[position] = {
             'name': player_name,
@@ -220,7 +269,10 @@ class Server:
     def _listener(self, position):
         while self.is_running:
             conn = self.players[position]['conn']
-            data = conn.recv(BUFFER_SIZE).decode()
+            try:
+                data = conn.recv(BUFFER_SIZE).decode()
+            except OSError:
+                pass
             if not data:
                 print("Player '{}' disconnected"
                       "".format(self.players[position]['name']))
@@ -239,20 +291,30 @@ class Server:
 
     def update(self):
         self.ball.update()
-        return {key: str(value) for key, value in self.objects.items()}
+        objects = {
+            position: str(paddle) for position, paddle
+            in self.paddles.items() if self.players[position]
+        }
+        objects.update({name: str(obj) for name, obj in self.objects.items()})
+        return objects
 
     def _send_updates(self):
         self.clock = pygame.time.Clock()
         while self.is_running:
             self.clock.tick(60)
             data = self.update()
-            for player in self.players.values():
-                if player and player.get('conn'):
+            for position, player in self.players.items():
+                if player:
                     try:
                         player['conn'].send(json.dumps(data).encode())
-                    except OSError as why:
+                    except OSError:
                         print("Player disconnected!")
-                        player['conn'] = None
+                        try:
+                            # stopping player listener thread
+                            player['listener'].join()
+                        except:
+                            pass
+                        self.players[position] = None
                         continue
             # time.sleep(0.0001)
 
